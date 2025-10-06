@@ -1,101 +1,82 @@
-// import axios from "axios";
-// import { NextResponse } from "next/server";
-// import dotenv from "dotenv";
+import { NextResponse } from 'next/server';
+import Groq from 'groq-sdk';
 
-// dotenv.config(); // Load environment variables
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY,
+});
 
-// const GROQ_API_KEY = process.env.GROQ_API_KEY;
+const getSystemPrompt = (input) => {
+    let userContent = '';
 
-// if (!process.env.GROQ_API_KEY) {
-//     console.error("Missing GROQ_API_KEY in environment variables!");
-// }
+    if (input.generationType === 'structured') {
+        const { title, eventType, category } = input.details;
+        userContent = `Flesh out the details for an event with the following specifics:
+        - Title: "${title}"
+        - Type: "${eventType}"
+        - Category: "${category}"
+        
+        Generate a creative and engaging description, a suitable date and time in the near future, and plausible venue/pricing details.`;
+    } 
+    else {
+        userContent = `Generate event details based on this idea: "${input.prompt}"`;
+    }
 
-// export async function POST(req) {
-//     try {
-//         const body = await req.json();
-//         const { title } = body;
+    const systemPrompt = `
+      You are an expert event planner. Based on the user's request, generate a complete set of event details.
+      Your response MUST be a single, valid JSON object with no extra text, explanations, or markdown.
+      The JSON object MUST conform to this exact structure:
+      {
+        "title": "string",
+        "description": "string (at least 60 words)",
+        "imageUrl": "string (a plausible image URL from https://images.unsplash.com/)",
+        "eventType": "string (one of: 'conference', 'workshop', 'seminar', 'networking', 'other')",
+        "category": "string (one of: 'technology', 'business', 'marketing', 'design', 'other')",
+        "date": "string (format: YYYY-MM-DD, must be a future date)",
+        "time": "string (format: HH:MM)",
+        "maxAttendees": "number",
+        "venueType": "string (one of: 'physical' or 'online')",
+        "venue": "string (name of the place, required if venueType is 'physical')",
+        "city": "string (required if venueType is 'physical')",
+        "platform": "string (e.g., 'Zoom', required if venueType is 'online')",
+        "meetingLink": "string (a sample URL, required if venueType is 'online')",
+        "isFreeEvent": "boolean",
+        "price": "number (required if isFreeEvent is false, otherwise 0)"
+      }
+    `;
 
-//         // Validate title
-//         if (!title) {
-//             return NextResponse.json({ error: "Title is required" }, { status: 400 });
-//         }
+    return { systemPrompt, userContent };
+};
 
-//         console.log(`Generating event for title: ${title}...`);
+export async function POST(request) {
+    try {
+        const body = await request.json();
 
-//         const aiResponse = await axios.post(
-//             "https://api.groq.com/openai/v1/chat/completions",
-//             {
-//                 model: "llama3-8b-8192",
-//                 messages: [
-//                     {
-//                         role: "user",
-//                         content: `Generate a detailed event description for: ${title}. 
-//                       The description should be at least *80 words* long.
-//                       The price must be in *Indian Rupees (₹)*.
-//                       Generate *strictly valid JSON* response. 
-//                       Ensure no extra text or formatting, *only return JSON*.
-//                       The JSON structure must be:
-//                       ''' {
-//                         "title": ${title},
-//                         "description": "A detailed 80-word description",
-//                         "price": "₹XXX",
-//                         "category": "string",
-//                         "hashtags": ["string"],
-//                         "date": "YYYY-MM-DD",
-//                         "time": "HH:MM AM/PM"
-//                         "city": "string",
-//                         "venue": "string"
-//                          } '''
-//                           add "}" at the end of the json dont forget to balnce the parantehsis
-//                       The price must be in *Indian Rupees (₹)*.
-//                       Do not include any explanations, pretext, markdown, or unnecessary formatting. Only return the JSON object.`,
-//                     },
-//                 ],
-//                 max_tokens: 250,
-//             },
-//             {
-//                 headers: {
-//                     Authorization: `Bearer ${GROQ_API_KEY}`,
-//                     "Content-Type": "application/json",
-//                 },
-//             }
-//         );
+        if (!body.generationType || (body.generationType === 'prompt' && !body.prompt) || (body.generationType === 'structured' && !body.details)) {
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+        }
 
-//         const content = aiResponse.data?.choices?.[0]?.message?.content?.trim();
+        const { systemPrompt, userContent } = getSystemPrompt(body);
 
-//         if (!content) {
-//             throw new Error("Invalid AI response format");
-//         }
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userContent },
+            ],
+            model: 'llama-3.3-70b-versatile',
+            temperature: 1,
+            response_format: { type: 'json_object' },
+        });
 
-//         // Safe JSON Parsing with Error Handling
-//         let eventData;
-//         try {
-//             eventData = JSON.parse(content);
-//         } catch (parseError) {
-//             console.error("JSON Parsing Error:", parseError.message, content);
-//             throw new Error("Received invalid JSON from AI response");
-//         }
+        const jsonResponse = JSON.parse(chatCompletion.choices[0]?.message?.content || '{}');
+        
+        return NextResponse.json({
+            success: true,
+            message: "Event generated successfully!",
+            data: jsonResponse,
+        });
 
-//         console.log("Generated Event Data:", eventData);
-
-//         return NextResponse.json({
-//             success: true,
-//             message: "Event generated successfully!",
-//             data: eventData,
-//         });
-//     } catch (error) {
-//         console.error(
-//             "Error generating event:",
-//             error.response?.data || error.message
-//         );
-
-//         return NextResponse.json(
-//             {
-//                 success: false,
-//                 error: "Failed to generate event. Please try again later.",
-//                 details: error.message,
-//             },
-//             { status: 500 }
-//         );
-//     }
-// }
+    } catch (error) {
+        console.error('Error generating event with GROQ:', error);
+        return NextResponse.json({ error: 'Failed to generate event.' }, { status: 500 });
+    }
+}
