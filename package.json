@@ -38,6 +38,8 @@
     "dotenv": "^16.4.7",
     "firebase": "^11.3.0",
     "framer-motion": "^12.4.3",
+    "grok-sdk": "^0.0.1-security",
+    "groq-sdk": "^0.33.0",
     "lucide-react": "^0.475.0",
     "next": "^15.1.6",
     "next-auth": "^4.24.11",

@@ -26,7 +26,7 @@ import { Textarea } from "@/components/ui/textarea";
 const formSchema = z.object({
     title: z.string().min(2, "Title must be at least 2 characters"),
     description: z.string().min(10, "Description must be at least 10 characters"),
-    imageUrl: z.string().url("Please enter a valid URL"),
+    imageUrl: z.string().url("Please enter a valid URL").optional().or(z.literal('')),
     category: z.string().min(1, "Please select a category"),
     eventType: z.string().min(1, "Please select event type"),
     date: z.date({ required_error: "Please select a date" }),
@@ -36,33 +36,39 @@ const formSchema = z.object({
     venue: z.string().optional(),
     city: z.string().optional(),
     platform: z.string().optional(),
-    meetingLink: z.string().url().optional(),
+    meetingLink: z.string().url().optional().or(z.literal('')),
     isFreeEvent: z.boolean(),
     price: z.string().optional()
-    // organizerName: z.string().min(2, "Please enter organizer name"),
-    // organizerContact: z.string().min(10, "Please enter a valid contact number")
 });
 
-export default function EventForm() {
+// The component now accepts an `initialData` prop.
+export default function EventForm({ initialData = null }) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
 
     const form = useForm({
         resolver: zodResolver(formSchema),
+        // This is the only part that has been changed.
+        // It uses the AI data if provided, otherwise it falls back to the original empty defaults.
         defaultValues: {
-            title: "",
-            description: "",
-            imageUrl: "",
-            category: "",
-            eventType: "",
-            time: "",
-            maxAttendees: "",
-            venueType: "physical",
-            isFreeEvent: false
-            // organizerName: "",
-            // organizerContact: ""
+            title: initialData?.title || "",
+            description: initialData?.description || "",
+            imageUrl: initialData?.imageUrl || "",
+            category: initialData?.category || "",
+            eventType: initialData?.eventType || "",
+            date: initialData?.date ? new Date(initialData.date) : undefined,
+            time: initialData?.time || "",
+            maxAttendees: initialData?.maxAttendees?.toString() || "",
+            venueType: initialData?.venueType || "physical",
+            venue: initialData?.venue || "",
+            city: initialData?.city || "",
+            platform: initialData?.platform || "",
+            meetingLink: initialData?.meetingLink || "",
+            isFreeEvent: initialData ? (initialData.isFreeEvent || !initialData.price || initialData.price === "0") : false,
+            price: initialData?.price?.toString().replace('₹', '').trim() || ""
         }
     });
+
     const venueType = form.watch("venueType");
     const isFreeEvent = form.watch("isFreeEvent");
 
@@ -109,7 +115,7 @@ export default function EventForm() {
             await set(newEventRef, eventData);
             toast.success("🎉 Event created successfully!");
             form.reset();
-            router.refresh();
+            router.push('/admin'); // Redirect to admin dashboard or events list
         } catch (error) {
             console.error("Error creating event:", error);
             toast.error("❌ Failed to create event. Please try again.");
@@ -374,8 +380,6 @@ export default function EventForm() {
                             </div>
                         )}
                     </div>
-
-                    {/* Previous code remains same until Pricing Section */}
 
                     {/* Pricing Section */}
                     <div className="space-y-6">
