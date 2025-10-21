@@ -68,7 +68,7 @@ export function Header() {
 
                 {/* Logo */}
                 <Link href="/" className="flex items-center space-x-2">
-                    <Image src="/logo.webp" alt="Logo" width={40} height={40} className="rounded-full" />
+                    <Image src="/Event.jpg" alt="Logo" width={40} height={40} className="rounded-full" />
                     <span className="font-bold text-white text-2xl">EventKonnect</span>
                 </Link>
 
