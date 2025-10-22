@@ -5,9 +5,10 @@ import { Header } from '@/components/header'
 import { EventCard } from '@/components/events-card'
 import { Button } from '@/components/ui/button'
 import { DayPicker } from 'react-day-picker'
-import { ChevronLeft, ChevronRight, Calendar, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Users, Search, X } from 'lucide-react'
 import 'react-day-picker/dist/style.css'
 import { database, ref, get } from '@/lib/firebase'
+import { useSearch } from '@/hooks/useSearch'
 import Image from 'next/image'
 
 const categories = ['All', 'Tech', 'Cultural & Entertainment', 'Business', 'Sports', 'Community']
@@ -41,6 +42,7 @@ export default function Home() {
   const [events, setEvents] = useState([])
   const [userGroups, setUserGroups] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const { searchQuery, searchEvents, searchResults, isSearching, clearSearch } = useSearch()
 
   // Fetch events & groups from Firebase
   useEffect(() => {
@@ -66,8 +68,31 @@ export default function Home() {
   const scrollLeft = () => scrollContainerRef.current?.scrollBy({ left: -200, behavior: 'smooth' })
   const scrollRight = () => scrollContainerRef.current?.scrollBy({ left: 200, behavior: 'smooth' })
 
-  // Filter events based on category
-  const filteredEvents = selectedCategory === 'All' ? events : events.filter(event => event.category === selectedCategory)
+  // Handle search functionality
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      searchEvents(searchQuery, events)
+    }
+  }, [searchQuery, events, searchEvents])
+
+  // Filter events based on category and search
+  const getFilteredEvents = () => {
+    let filtered = events
+
+    // Apply search filter if there's a search query
+    if (searchQuery.trim()) {
+      filtered = searchResults
+    }
+
+    // Apply category filter
+    if (selectedCategory !== 'All') {
+      filtered = filtered.filter(event => event.category === selectedCategory)
+    }
+
+    return filtered
+  }
+
+  const filteredEvents = getFilteredEvents()
 
   return (
     <div className="min-h-screen bg-background">
@@ -136,6 +161,26 @@ export default function Home() {
 
           {/* Events Section */}
           <section className="space-y-8">
+            {/* Search Results Header */}
+            {searchQuery.trim() && (
+              <div className="flex items-center justify-between bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <Search className="w-5 h-5 text-purple-400" />
+                  <span className="text-white">
+                    {isSearching ? 'Searching...' : `Found ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''} for "${searchQuery}"`}
+                  </span>
+                </div>
+                <Button
+                  onClick={clearSearch}
+                  variant="ghost"
+                  size="sm"
+                  className="text-purple-400 hover:text-white hover:bg-purple-500/20"
+                >
+                  <X className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
+
             {/* Categories */}
             <div ref={scrollContainerRef} className="flex gap-4 overflow-x-auto scrollbar-hide pb-6 -mx-2 px-2">
               {categories.map(category => (
@@ -163,13 +208,30 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center text-center">
-                  <span className="text-4xl md:text-5xl lg:text-6xl">📅😔</span>
+                  <span className="text-4xl md:text-5xl lg:text-6xl">
+                    {searchQuery.trim() ? '🔍😔' : '📅😔'}
+                  </span>
                   <p className="text-white text-lg md:text-xl font-semibold mt-4">
-                    Oops! No events scheduled at the moment.
+                    {searchQuery.trim() 
+                      ? `No events found for "${searchQuery}"`
+                      : 'Oops! No events scheduled at the moment.'
+                    }
                   </p>
                   <p className="text-gray-400 text-sm md:text-base">
-                    Check back later for exciting updates! 🚀
+                    {searchQuery.trim() 
+                      ? 'Try searching with different keywords or clear the search to see all events.'
+                      : 'Check back later for exciting updates! 🚀'
+                    }
                   </p>
+                  {searchQuery.trim() && (
+                    <Button
+                      onClick={clearSearch}
+                      variant="outline"
+                      className="mt-4 text-white border-purple-500 hover:bg-purple-500/20"
+                    >
+                      Clear Search
+                    </Button>
+                  )}
                 </div>
               )}
             </div>

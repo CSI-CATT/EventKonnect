@@ -9,10 +9,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { auth } from "@/lib/firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
+import { useSearch } from "@/hooks/useSearch";
 
 export function Header() {
     const [user, setUser] = useState(null);
     const [dropdowns, setDropdowns] = useState({ auth: false });
+    const { searchQuery, setSearchQuery } = useSearch();
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -46,6 +48,19 @@ export function Header() {
                                     </Button>
                                 </SheetTrigger>
                             </div>
+                            
+                            {/* Mobile Search Bar */}
+                            <div className="mt-4 relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search events..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full py-2 pl-4 pr-10 rounded-full bg-gray-800 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
+                                />
+                                <FaSearch className="absolute right-3 top-2.5 text-gray-400 text-lg" />
+                            </div>
+                            
                             <nav className="mt-6 flex flex-col space-y-4">
                                 <Link href="/" className="text-lg font-semibold hover:text-purple-400">Home</Link>
                                 <Link href="/admin" className="text-lg hover:text-purple-400">Create Event</Link>
@@ -77,6 +92,8 @@ export function Header() {
                     <input
                         type="text"
                         placeholder="Search events..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full py-2 pl-4 pr-10 rounded-full bg-gray-800 border border-gray-600 text-white focus:outline-none focus:ring-2 focus:ring-purple-600"
                     />
                     <FaSearch className="absolute right-3 top-2.5 text-gray-400 text-lg" />

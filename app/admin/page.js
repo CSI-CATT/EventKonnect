@@ -5,7 +5,8 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { database, ref, get} from "@/lib/firebase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, Users, Heart, ChevronRight } from "lucide-react";
+import { Calendar, Clock, MapPin, Users, Heart, ChevronRight, Search, X } from "lucide-react";
+import { useSearch } from "@/hooks/useSearch";
 import Link from "next/link";
 
 // async function fetchEvents() {
@@ -40,6 +41,7 @@ export default function DashboardPage() {
     const [user, setUser] = useState(null);
     const [events, setEvents] = useState([]);
     const [isClient, setIsClient] = useState(false);
+    const { searchQuery, searchEvents, searchResults, isSearching, clearSearch } = useSearch();
 
     // useEffect(() => {
     //     setIsClient(true);
@@ -67,6 +69,23 @@ export default function DashboardPage() {
 
       return () => unsubscribe();
     }, []);
+
+    // Handle search functionality
+    useEffect(() => {
+      if (searchQuery.trim()) {
+        searchEvents(searchQuery, events);
+      }
+    }, [searchQuery, events, searchEvents]);
+
+    // Get filtered events based on search
+    const getFilteredEvents = () => {
+      if (searchQuery.trim()) {
+        return searchResults;
+      }
+      return events;
+    };
+
+    const filteredEvents = getFilteredEvents();
 
     const checklist = [
         "Fill profile",
@@ -115,6 +134,26 @@ export default function DashboardPage() {
                     </Link>
                 </div>
 
+                {/* Search Results Header */}
+                {searchQuery.trim() && (
+                    <div className="flex items-center justify-between bg-purple-900/20 border border-purple-500/30 rounded-lg p-4">
+                        <div className="flex items-center gap-3">
+                            <Search className="w-5 h-5 text-purple-400" />
+                            <span className="text-white">
+                                {isSearching ? 'Searching...' : `Found ${filteredEvents.length} event${filteredEvents.length !== 1 ? 's' : ''} for "${searchQuery}"`}
+                            </span>
+                        </div>
+                        <Button
+                            onClick={clearSearch}
+                            variant="ghost"
+                            size="sm"
+                            className="text-purple-400 hover:text-white hover:bg-purple-500/20"
+                        >
+                            <X className="w-4 h-4" />
+                        </Button>
+                    </div>
+                )}
+
                 {/* Stats Section */}
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card className="bg-gray-900 border-purple-500">
@@ -123,7 +162,7 @@ export default function DashboardPage() {
                                 <Calendar className="h-6 w-6 text-purple-400" />
                                 <div>
                                     <p className="text-sm font-medium text-gray-300">Total Events</p>
-                                    <p className="text-2xl font-bold text-white">{events.length}</p>
+                                    <p className="text-2xl font-bold text-white">{filteredEvents.length}</p>
                                 </div>
                             </div>
                         </CardContent>
@@ -133,9 +172,12 @@ export default function DashboardPage() {
 
                 {/* Past Events Section */}
                 <div>
-                    <h2 className="text-xl font-semibold mb-4 text-purple-400">Past events</h2>
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {events.map((event) => (
+                    <h2 className="text-xl font-semibold mb-4 text-purple-400">
+                        {searchQuery.trim() ? 'Search Results' : 'Past events'}
+                    </h2>
+                    {filteredEvents.length > 0 ? (
+                        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                            {filteredEvents.map((event) => (
                             <Card key={event.id} className="bg-gray-900 border-purple-500">
                                 <CardContent className="p-0">
                                     <div className="aspect-video relative">
@@ -173,8 +215,36 @@ export default function DashboardPage() {
                                     </div>
                                 </CardContent>
                             </Card>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center text-center py-12">
+                            <span className="text-4xl md:text-5xl lg:text-6xl">
+                                {searchQuery.trim() ? '🔍😔' : '📅😔'}
+                            </span>
+                            <p className="text-white text-lg md:text-xl font-semibold mt-4">
+                                {searchQuery.trim() 
+                                    ? `No events found for "${searchQuery}"`
+                                    : 'No events created yet.'
+                                }
+                            </p>
+                            <p className="text-gray-400 text-sm md:text-base">
+                                {searchQuery.trim() 
+                                    ? 'Try searching with different keywords or clear the search to see all events.'
+                                    : 'Create your first event to get started!'
+                                }
+                            </p>
+                            {searchQuery.trim() && (
+                                <Button
+                                    onClick={clearSearch}
+                                    variant="outline"
+                                    className="mt-4 text-white border-purple-500 hover:bg-purple-500/20"
+                                >
+                                    Clear Search
+                                </Button>
+                            )}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
